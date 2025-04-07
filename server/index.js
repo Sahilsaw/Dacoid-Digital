@@ -24,8 +24,8 @@ app.use(express.json());
 // CORS configuration
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? true // Allow all origins in production
-    : 'http://localhost:5173', // Only allow localhost in development
+    ? ['https://dacoid-digital-production.up.railway.app', 'http://localhost:5173']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -42,6 +42,7 @@ app.use(limiter);
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
   app.use(express.static(path.join(__dirname, "../dist")));
 
   // Handle client-side routing
@@ -147,7 +148,16 @@ app.post('/api/links', authenticateToken, async (req, res) => {
       }
     });
 
-    res.status(201).json(link);
+    // Return the link with the correct structure
+    res.status(201).json({
+      id: link.id,
+      originalUrl: link.originalUrl,
+      shortUrl: link.shortUrl,
+      customAlias: link.customAlias,
+      expiresAt: link.expiresAt,
+      createdAt: link.createdAt,
+      clicks: link._count.clicks
+    });
   } catch (error) {
     console.error('Error creating link:', error);
     res.status(500).json({ 
@@ -250,13 +260,13 @@ app.get('/api/links/:shortCode', async (req, res) => {
 });
 
 // Redirect route
-app.get('/:shortUrl', async (req, res) => {
-  const { shortUrl } = req.params;
-
+app.get('/:shortCode', async (req, res) => {
   try {
+    const { shortCode } = req.params;
+    
+    // Find the link
     const link = await prisma.link.findUnique({
-      where: { shortUrl },
-      include: { clicks: true }
+      where: { shortUrl: shortCode }
     });
 
     if (!link) {
@@ -264,34 +274,25 @@ app.get('/:shortUrl', async (req, res) => {
     }
 
     // Check if the link has expired
-    if (link.expiresAt) {
-      const now = new Date();
-      const expiryDate = new Date(link.expiresAt);
-      
-      // Debug log to see the dates
-      console.log('Current time:', now);
-      console.log('Expiry time:', expiryDate);
-      
-      if (now > expiryDate) {
-        return res.status(410).json({ error: 'Link expired' });
-      }
+    if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+      return res.status(410).json({ error: 'Link has expired' });
     }
 
-    // Async click logging
-    prisma.click.create({
+    // Record the click
+    await prisma.click.create({
       data: {
         linkId: link.id,
-        ip: req.ip,
+        ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
-        device: req.headers['sec-ch-ua-platform'],
-        browser: req.headers['sec-ch-ua']
+        referrer: req.headers.referer
       }
-    }).catch(console.error);
+    });
 
+    // Redirect to the original URL
     res.redirect(link.originalUrl);
   } catch (error) {
-    console.error('Error in redirect:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error redirecting:', error);
+    res.status(500).json({ error: 'Failed to redirect' });
   }
 });
 

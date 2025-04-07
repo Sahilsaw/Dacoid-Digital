@@ -56,12 +56,30 @@ const useStore = create((set) => ({
         throw new Error('No data received from server');
       }
 
+      // Create a new link object with the correct structure
+      const newLink = {
+        id: response.data.id,
+        originalUrl: response.data.originalUrl,
+        shortUrl: response.data.shortUrl,
+        customAlias: response.data.customAlias,
+        expiresAt: response.data.expiresAt,
+        createdAt: response.data.createdAt,
+        _count: {
+          clicks: response.data.clicks || 0
+        }
+      };
+
+      // Update the state with the new link
       set((state) => ({
-        links: [response.data, ...state.links],
+        links: [newLink, ...state.links],
         totalLinks: state.totalLinks + 1,
         error: null
       }));
-      return response.data;
+
+      // Refresh the links list to ensure consistency
+      await useStore.getState().fetchLinks(1, '');
+
+      return newLink;
     } catch (error) {
       console.error('Error creating link:', error);
       const errorMessage = error.response?.data?.error || 'Failed to create link';
