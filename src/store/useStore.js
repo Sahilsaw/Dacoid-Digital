@@ -1,14 +1,15 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const useStore = create((set) => ({
-
+  // Auth state
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
   user: null,
 
+  // Link state
   links: [],
   totalLinks: 0,
   currentPage: 1,
@@ -16,9 +17,11 @@ const useStore = create((set) => ({
   isLoading: false,
   error: null,
 
+  // Analytics state
   analytics: null,
   isLoadingAnalytics: false,
 
+  // Auth actions
   login: async (email, password) => {
     try {
       const response = await axios.post(`${API_URL}/auth/login`, {
@@ -40,6 +43,7 @@ const useStore = create((set) => ({
     set({ token: null, isAuthenticated: false, user: null });
   },
 
+  // Link actions
   createLink: async (linkData) => {
     try {
       set({ isLoading: true, error: null });
@@ -80,6 +84,7 @@ const useStore = create((set) => ({
     }
   },
 
+  // Analytics actions
   fetchAnalytics: async (linkId) => {
     try {
       set({ isLoadingAnalytics: true });
@@ -94,6 +99,7 @@ const useStore = create((set) => ({
     }
   },
 
+  // Redirect actions
   getOriginalUrl: async (shortCode) => {
     try {
       const response = await axios.get(`${API_URL}/links/${shortCode}`);
@@ -104,6 +110,7 @@ const useStore = create((set) => ({
     }
   },
 
+  // Clear error
   clearError: () => set({ error: null })
 }));
 

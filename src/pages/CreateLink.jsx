@@ -46,10 +46,12 @@ export default function CreateLink() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
+      // Ensure the URL has a protocol
       if (!data.originalUrl.startsWith('http://') && !data.originalUrl.startsWith('https://')) {
         data.originalUrl = `https://${data.originalUrl}`;
       }
 
+      // Format the expiration date if provided
       if (data.expiresAt) {
         data.expiresAt = new Date(data.expiresAt).toISOString();
       }
