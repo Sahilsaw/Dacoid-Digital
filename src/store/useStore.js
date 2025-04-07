@@ -27,7 +27,7 @@ const useStore = create((set) => ({
   // Auth actions
   login: async (email, password) => {
     try {
-      const response = await axios.post(`${API_URL}/api/auth/login`, {
+      const response = await axiosInstance.post('/auth/login', {
         email,
         password
       });
@@ -50,12 +50,7 @@ const useStore = create((set) => ({
   createLink: async (linkData) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await axios.post(`${API_URL}/api/links`, linkData, {
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await axiosInstance.post('/links', linkData);
       
       if (!response.data) {
         throw new Error('No data received from server');
@@ -80,12 +75,8 @@ const useStore = create((set) => ({
   fetchLinks: async (page = 1, search = '') => {
     try {
       set({ isLoading: true, error: null });
-      const response = await axios.get(`${API_URL}/api/links`, {
-        params: { page, search },
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await axiosInstance.get('/links', {
+        params: { page, search }
       });
       
       // Ensure we have valid data before setting state
@@ -115,9 +106,7 @@ const useStore = create((set) => ({
   fetchAnalytics: async (linkId) => {
     try {
       set({ isLoadingAnalytics: true });
-      const response = await axios.get(`${API_URL}/analytics/${linkId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const response = await axiosInstance.get(`/analytics/${linkId}`);
       set({ analytics: response.data });
     } catch (error) {
       set({ error: error.response?.data?.error || 'Failed to fetch analytics' });
@@ -129,7 +118,7 @@ const useStore = create((set) => ({
   // Redirect actions
   getOriginalUrl: async (shortCode) => {
     try {
-      const response = await axios.get(`${API_URL}/links/${shortCode}`);
+      const response = await axiosInstance.get(`/links/${shortCode}`);
       return response.data.originalUrl;
     } catch (error) {
       set({ error: error.response?.data?.error || 'Failed to get original URL' });
