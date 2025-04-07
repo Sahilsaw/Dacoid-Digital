@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+// Use the current domain in production, fallback to localhost in development
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? window.location.origin 
+  : 'http://localhost:5000/api';
 
 const useStore = create((set) => ({
   // Auth state
@@ -24,7 +27,7 @@ const useStore = create((set) => ({
   // Auth actions
   login: async (email, password) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, {
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password
       });
