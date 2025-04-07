@@ -139,12 +139,21 @@ app.post('/api/links', authenticateToken, async (req, res) => {
         customAlias,
         expiresAt: parsedExpiresAt,
         userId
+      },
+      include: {
+        _count: {
+          select: { clicks: true }
+        }
       }
     });
-    res.json(link);
+
+    res.status(201).json(link);
   } catch (error) {
     console.error('Error creating link:', error);
-    res.status(500).json({ error: 'Failed to create link' });
+    res.status(500).json({ 
+      error: 'Failed to create link',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

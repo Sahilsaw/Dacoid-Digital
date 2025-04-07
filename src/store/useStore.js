@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import { axiosInstance } from '../lib/axios';
 
 // Use the current domain in production, fallback to localhost in development
 const API_URL = process.env.NODE_ENV === 'production' 
   ? window.location.origin 
-  : 'http://localhost:5000/api';
+  : 'http://localhost:5000';
 
 const useStore = create((set) => ({
   // Auth state
@@ -50,15 +50,25 @@ const useStore = create((set) => ({
   createLink: async (linkData) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await axios.post(`${API_URL}/links`, linkData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      const response = await axios.post(`${API_URL}/api/links`, linkData, {
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
       });
+      
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+
       set((state) => ({
         links: [response.data, ...state.links],
-        totalLinks: state.totalLinks + 1
+        totalLinks: state.totalLinks + 1,
+        error: null
       }));
       return response.data;
     } catch (error) {
+      console.error('Error creating link:', error);
       const errorMessage = error.response?.data?.error || 'Failed to create link';
       set({ error: errorMessage });
       throw new Error(errorMessage);
@@ -70,9 +80,12 @@ const useStore = create((set) => ({
   fetchLinks: async (page = 1, search = '') => {
     try {
       set({ isLoading: true, error: null });
-      const response = await axios.get(`${API_URL}/links`, {
+      const response = await axios.get(`${API_URL}/api/links`, {
         params: { page, search },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { 
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       // Ensure we have valid data before setting state
@@ -83,7 +96,8 @@ const useStore = create((set) => ({
         links,
         totalLinks: total,
         currentPage: page,
-        searchQuery: search
+        searchQuery: search,
+        error: null
       });
     } catch (error) {
       console.error('Error fetching links:', error);
