@@ -13,7 +13,6 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -21,10 +20,7 @@ const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
-}));
+app.use(cors());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -35,7 +31,12 @@ app.use(limiter);
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  app.use(express.static(path.join(__dirname, "../dist")));
+
+  // Handle client-side routing
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../dist", "index.html"));
+  });
 }
 
 // Auth middleware
@@ -314,14 +315,7 @@ app.get('/api/analytics/:linkId', authenticateToken, async (req, res) => {
   }
 });
 
-// In production, serve the frontend for all non-API routes
-if (process.env.NODE_ENV === "production") {
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
-  });
-}
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 

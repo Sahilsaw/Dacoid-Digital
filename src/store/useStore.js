@@ -1,10 +1,7 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-// Use relative URL in production, absolute in development
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api' 
-  : 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5000/api';
 
 const useStore = create((set) => ({
   // Auth state
