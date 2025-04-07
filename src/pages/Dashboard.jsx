@@ -138,10 +138,10 @@ export default function Dashboard() {
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : links.length === 0 ? (
+              ) : !links || links.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                    No links found
+                    {error ? `Error: ${error}` : 'No links found'}
                   </TableCell>
                 </TableRow>
               ) : (

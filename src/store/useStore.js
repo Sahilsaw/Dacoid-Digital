@@ -69,19 +69,29 @@ const useStore = create((set) => ({
 
   fetchLinks: async (page = 1, search = '') => {
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, error: null });
       const response = await axios.get(`${API_URL}/links`, {
         params: { page, search },
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+      
+      // Ensure we have valid data before setting state
+      const links = response.data?.links || [];
+      const total = response.data?.total || 0;
+      
       set({
-        links: response.data.links,
-        totalLinks: response.data.total,
+        links,
+        totalLinks: total,
         currentPage: page,
         searchQuery: search
       });
     } catch (error) {
-      set({ error: error.response?.data?.error || 'Failed to fetch links' });
+      console.error('Error fetching links:', error);
+      set({ 
+        error: error.response?.data?.error || 'Failed to fetch links',
+        links: [],
+        totalLinks: 0
+      });
     } finally {
       set({ isLoading: false });
     }

@@ -178,13 +178,20 @@ app.get('/api/links', authenticateToken, async (req, res) => {
       prisma.link.count({ where })
     ]);
 
+    // Ensure we always return a valid response structure
     res.json({
-      links,
-      total,
-      pages: Math.ceil(total / limit)
+      links: links || [],
+      total: total || 0,
+      pages: Math.ceil((total || 0) / limit)
     });
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error fetching links:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch links',
+      links: [],
+      total: 0,
+      pages: 0
+    });
   }
 });
 
