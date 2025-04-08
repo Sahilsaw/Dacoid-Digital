@@ -14,42 +14,30 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
-// Get the directory name
+// Get the directory name in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(express.json());
 
-// CORS configuration
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://dacoid-digital-production.up.railway.app', 'http://localhost:5173']
-    : 'http://localhost:5173',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
+// In development, enable CORS for the Vite dev server
+if (process.env.NODE_ENV === 'development') {
+  app.use(cors());
+}
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100 // limit each IP to 100 requests per windowMs
 });
-app.use(limiter);
+app.use('/api/', limiter);
 
-// Serve static files in production
-if (process.env.NODE_ENV === "production") {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  app.use(express.static(path.join(__dirname, "../dist")));
-
-  // Handle client-side routing
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../dist", "index.html"));
-  });
-}
+// API routes
+app.use('/api', (req, res, next) => {
+  // Add /api prefix to all API routes
+  next();
+});
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
@@ -140,30 +128,12 @@ app.post('/api/links', authenticateToken, async (req, res) => {
         customAlias,
         expiresAt: parsedExpiresAt,
         userId
-      },
-      include: {
-        _count: {
-          select: { clicks: true }
-        }
       }
     });
-
-    // Return the link with the correct structure
-    res.status(201).json({
-      id: link.id,
-      originalUrl: link.originalUrl,
-      shortUrl: link.shortUrl,
-      customAlias: link.customAlias,
-      expiresAt: link.expiresAt,
-      createdAt: link.createdAt,
-      clicks: link._count.clicks
-    });
+    res.json(link);
   } catch (error) {
     console.error('Error creating link:', error);
-    res.status(500).json({ 
-      error: 'Failed to create link',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ error: 'Failed to create link' });
   }
 });
 
@@ -197,20 +167,13 @@ app.get('/api/links', authenticateToken, async (req, res) => {
       prisma.link.count({ where })
     ]);
 
-    // Ensure we always return a valid response structure
     res.json({
-      links: links || [],
-      total: total || 0,
-      pages: Math.ceil((total || 0) / limit)
+      links,
+      total,
+      pages: Math.ceil(total / limit)
     });
   } catch (error) {
-    console.error('Error fetching links:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch links',
-      links: [],
-      total: 0,
-      pages: 0
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -260,13 +223,13 @@ app.get('/api/links/:shortCode', async (req, res) => {
 });
 
 // Redirect route
-app.get('/:shortCode', async (req, res) => {
+app.get('/:shortUrl', async (req, res) => {
+  const { shortUrl } = req.params;
+
   try {
-    const { shortCode } = req.params;
-    
-    // Find the link
     const link = await prisma.link.findUnique({
-      where: { shortUrl: shortCode }
+      where: { shortUrl },
+      include: { clicks: true }
     });
 
     if (!link) {
@@ -274,25 +237,34 @@ app.get('/:shortCode', async (req, res) => {
     }
 
     // Check if the link has expired
-    if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
-      return res.status(410).json({ error: 'Link has expired' });
+    if (link.expiresAt) {
+      const now = new Date();
+      const expiryDate = new Date(link.expiresAt);
+      
+      // Debug log to see the dates
+      console.log('Current time:', now);
+      console.log('Expiry time:', expiryDate);
+      
+      if (now > expiryDate) {
+        return res.status(410).json({ error: 'Link expired' });
+      }
     }
 
-    // Record the click
-    await prisma.click.create({
+    // Async click logging
+    prisma.click.create({
       data: {
         linkId: link.id,
-        ipAddress: req.ip,
+        ip: req.ip,
         userAgent: req.headers['user-agent'],
-        referrer: req.headers.referer
+        device: req.headers['sec-ch-ua-platform'],
+        browser: req.headers['sec-ch-ua']
       }
-    });
+    }).catch(console.error);
 
-    // Redirect to the original URL
     res.redirect(link.originalUrl);
   } catch (error) {
-    console.error('Error redirecting:', error);
-    res.status(500).json({ error: 'Failed to redirect' });
+    console.error('Error in redirect:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -343,7 +315,24 @@ app.get('/api/analytics/:linkId', authenticateToken, async (req, res) => {
   }
 });
 
+// Serve static files from the frontend build directory in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files
+  app.use(express.static(path.join(__dirname, '../dist')));
+
+  // Handle client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  });
+}
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
+});
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
 }); 

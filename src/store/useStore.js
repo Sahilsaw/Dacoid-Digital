@@ -1,10 +1,8 @@
 import { create } from 'zustand';
-import { axiosInstance } from '../lib/axios';
+import axios from 'axios';
 
-// Use the current domain in production, fallback to localhost in development
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? window.location.origin 
-  : 'http://localhost:5000';
+// Use relative path for API calls - this will work both in development and production
+const API_URL = '/api';
 
 const useStore = create((set) => ({
   // Auth state
@@ -27,7 +25,7 @@ const useStore = create((set) => ({
   // Auth actions
   login: async (email, password) => {
     try {
-      const response = await axiosInstance.post('/auth/login', {
+      const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password
       });
@@ -50,38 +48,15 @@ const useStore = create((set) => ({
   createLink: async (linkData) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await axiosInstance.post('/links', linkData);
-      
-      if (!response.data) {
-        throw new Error('No data received from server');
-      }
-
-      // Create a new link object with the correct structure
-      const newLink = {
-        id: response.data.id,
-        originalUrl: response.data.originalUrl,
-        shortUrl: response.data.shortUrl,
-        customAlias: response.data.customAlias,
-        expiresAt: response.data.expiresAt,
-        createdAt: response.data.createdAt,
-        _count: {
-          clicks: response.data.clicks || 0
-        }
-      };
-
-      // Update the state with the new link
+      const response = await axios.post(`${API_URL}/links`, linkData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
       set((state) => ({
-        links: [newLink, ...state.links],
-        totalLinks: state.totalLinks + 1,
-        error: null
+        links: [response.data, ...state.links],
+        totalLinks: state.totalLinks + 1
       }));
-
-      // Refresh the links list to ensure consistency
-      await useStore.getState().fetchLinks(1, '');
-
-      return newLink;
+      return response.data;
     } catch (error) {
-      console.error('Error creating link:', error);
       const errorMessage = error.response?.data?.error || 'Failed to create link';
       set({ error: errorMessage });
       throw new Error(errorMessage);
@@ -92,29 +67,19 @@ const useStore = create((set) => ({
 
   fetchLinks: async (page = 1, search = '') => {
     try {
-      set({ isLoading: true, error: null });
-      const response = await axiosInstance.get('/links', {
-        params: { page, search }
+      set({ isLoading: true });
+      const response = await axios.get(`${API_URL}/links`, {
+        params: { page, search },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      
-      // Ensure we have valid data before setting state
-      const links = response.data?.links || [];
-      const total = response.data?.total || 0;
-      
       set({
-        links,
-        totalLinks: total,
+        links: response.data.links,
+        totalLinks: response.data.total,
         currentPage: page,
-        searchQuery: search,
-        error: null
+        searchQuery: search
       });
     } catch (error) {
-      console.error('Error fetching links:', error);
-      set({ 
-        error: error.response?.data?.error || 'Failed to fetch links',
-        links: [],
-        totalLinks: 0
-      });
+      set({ error: error.response?.data?.error || 'Failed to fetch links' });
     } finally {
       set({ isLoading: false });
     }
@@ -124,7 +89,9 @@ const useStore = create((set) => ({
   fetchAnalytics: async (linkId) => {
     try {
       set({ isLoadingAnalytics: true });
-      const response = await axiosInstance.get(`/analytics/${linkId}`);
+      const response = await axios.get(`${API_URL}/analytics/${linkId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
       set({ analytics: response.data });
     } catch (error) {
       set({ error: error.response?.data?.error || 'Failed to fetch analytics' });
@@ -136,7 +103,7 @@ const useStore = create((set) => ({
   // Redirect actions
   getOriginalUrl: async (shortCode) => {
     try {
-      const response = await axiosInstance.get(`/links/${shortCode}`);
+      const response = await axios.get(`${API_URL}/links/${shortCode}`);
       return response.data.originalUrl;
     } catch (error) {
       set({ error: error.response?.data?.error || 'Failed to get original URL' });
