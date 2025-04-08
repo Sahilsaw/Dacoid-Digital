@@ -44,7 +44,7 @@ A full-stack URL shortener application with analytics dashboard, built with Reac
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone "https://github.com/Sahilsaw/Dacoid-Digital"
 cd url-shortener
 ```
 
@@ -81,8 +81,8 @@ npm run dev
 ## Usage
 
 1. Login with the default credentials:
-   - Email: intern@dacoid.com
-   - Password: Test123
+   - Email: admin@example.com
+   - Password: admin123
 
 2. Create a new shortened URL:
    - Enter the original URL
